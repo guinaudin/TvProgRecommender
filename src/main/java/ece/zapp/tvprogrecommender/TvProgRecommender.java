@@ -14,6 +14,9 @@ public class TvProgRecommender {
             Logger.getLogger(TvProgRecommender.class.getName()).log(Level.SEVERE, null, ex);
         }
         
+        
+        
+        
         /*DataModel model = new FileDataModel(new File("intro.csv"));
         UserSimilarity similarity = new PearsonCorrelationSimilarity(model);
         UserNeighborhood neighborhood = new NearestNUserNeighborhood(2, similarity, model);
