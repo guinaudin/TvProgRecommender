@@ -19,6 +19,8 @@ public class TvProgRecommender {
                 }
                 System.out.println("");
             }
+            
+            profileManager.actorWeightCalculation();
         }
         catch (SQLException ex) {
             Logger.getLogger(TvProgRecommender.class.getName()).log(Level.SEVERE, null, ex);

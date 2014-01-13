@@ -6,6 +6,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -42,24 +43,88 @@ public class ProfileManager {
         numberUsers = this.getNumberUsers();
     }
 
-    public void weightCalculation() throws SQLException {
-
+    public void actorWeightCalculation() throws SQLException {
         Statement stmt = myCon.createStatement();
-
+        Statement stmt2 = myCon.createStatement();
+        Statement stmt3 = myCon.createStatement();
+       
         //récupère tous les id utilisateurs
-        ResultSet rs = stmt.executeQuery(
-                "SELECT USERID FROM USERS");
-
+        ResultSet rs = stmt.executeQuery("SELECT userId FROM Users");
+        myCon.commit();
+       
         while (rs.next()) {
-            //récupère tous les id des programmes vu pour un utilisateur
-            ResultSet rs2 = stmt.executeQuery(
-                    "SELECT PROGID"
-                    + "WHERE USERID LIKE 'rs.getLong(0)' FROM USERSHISTORIC");
+            Map<Long, Integer> actorRecurrence = new HashMap<Long, Integer>();
+            Map<Long, Float> actorWeight = new HashMap<Long, Float>();
+            int row;
+            Long userId = rs.getLong("userId");
+            String query = "SELECT progId FROM UserHistoric WHERE userId = " + userId;
+            ResultSet rs2 = stmt2.executeQuery(query);
+            myCon.commit();
+           
+            //récupère le nb de progtv vus par ce user
+            rs2.last();
+            row = rs2.getRow();
+            rs2.beforeFirst();
+ 
+            while (rs2.next()) {
+                Long prodId = rs2.getLong("progId");
+                //récupère les acteurs qui ont joués dans les progTV vus
+                ResultSet rs3 = stmt3.executeQuery(
+                        "SELECT artistId FROM ArtistPlayIn WHERE progId = " + prodId + " "); //TODO PBM ICI car pas de distinction des rôles (je prends tlm, pas seulement les acteurs)
+               
+                myCon.commit();
+ 
+                while (rs3.next()) {
+                    if (actorRecurrence.containsKey(rs3.getLong("artistId"))) {
+                        int tmp = actorRecurrence.get(rs3.getLong("artistId"));
+                        actorRecurrence.put(rs3.getLong("artistId"), tmp + 1); //ajoute 1 au nb d'apparence de l'acteurId
+                    } else {
+                        actorRecurrence.put(rs3.getLong("artistId"), 1); // créé la ligne de l'acteur avec 1 apparence
+                    }
+                }
+            }
+ 
+            //calcul de la pondération par acteur
+                for (Map.Entry<Long, Integer> entry : actorRecurrence.entrySet()) {
+                    //calcule le poids pour un acteur donné
+                    float newWeight = (float) entry.getValue() / row;
+                    //save le nouveau poids
+                    actorWeight.put(entry.getKey(), newWeight);
+                }
+ 
+            for (Map.Entry<Long, Float> entryWeight : actorWeight.entrySet()) {
+                PreparedStatement ps = myCon.prepareStatement("SELECT count(*) FROM ArtistPreferences WHERE userId = ? AND artistId = ?");
+                ps.setLong(1, userId);
+                ps.setLong(2, entryWeight.getKey());              
+                ResultSet resultSet = ps.executeQuery();
+                myCon.commit();
+               
+                resultSet.next();
+               
+                //si la ligne existe déjà on l'actualise
+                if (resultSet.getInt(1) == 1) {
+                    PreparedStatement update = myCon.prepareStatement("UPDATE ArtistPreferences SET artistWeight = ? WHERE userId = ? AND artistId = ?");
+                    update.setFloat(1,entryWeight.getValue());
+                    update.setLong(2, userId );
+                    update.setLong(3,entryWeight.getKey());
+                    update.executeUpdate();
+                    myCon.commit();
+                }
+                //sinon on la créé
+                else{
+                    PreparedStatement insert = myCon.prepareStatement("INSERT INTO ArtistPreferences (userId, artistId, artistWeight) VALUES (?,?,?)");
+                   
+                    insert.setLong(1, userId );
+                    insert.setLong(2,entryWeight.getKey());
+                    insert.setFloat(3,entryWeight.getValue());
+                    insert.executeUpdate();
+                    myCon.commit();
+                }
+            }
+            //vide les hashmasp pour le prochain user
+            actorRecurrence.clear();
+            actorWeight.clear();
         }
-
-        //ex de data à rentrer après calcul
-        stmt.executeUpdate("INSERT INTO ARTISTPREFERENCES VALUES (1, 1, 0.99)");
-        stmt.executeUpdate("INSERT INTO ARTISTPREFERENCES VALUES (2, 1, 0.19)");
     }
     
     private int getNumberUsers() throws SQLException {
