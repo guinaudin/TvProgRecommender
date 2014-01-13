@@ -12,9 +12,8 @@ public class TvProgRecommender {
         try {
             ProfileManager profileManager = new ProfileManager("jdbc:mysql://localhost:3306/Profile", "root", "");
             List<RecommendedItem> recommendations = profileManager.findActorPreferences();
-
-            for (RecommendedItem recommendation : recommendations) {
-                System.out.println(recommendation);
+            for(RecommendedItem recommendation : recommendations) {
+                System.out.println("recommendation =" + recommendation);
             }
         } catch (SQLException ex) {
             Logger.getLogger(TvProgRecommender.class.getName()).log(Level.SEVERE, null, ex);

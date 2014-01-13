@@ -19,6 +19,8 @@ import org.apache.mahout.cf.taste.common.TasteException;
 import org.apache.mahout.cf.taste.impl.model.file.FileDataModel;
 import org.apache.mahout.cf.taste.impl.neighborhood.NearestNUserNeighborhood;
 import org.apache.mahout.cf.taste.impl.recommender.GenericUserBasedRecommender;
+import org.apache.mahout.cf.taste.impl.recommender.knn.ConjugateGradientOptimizer;
+import org.apache.mahout.cf.taste.impl.recommender.knn.Optimizer;
 import org.apache.mahout.cf.taste.impl.similarity.PearsonCorrelationSimilarity;
 import org.apache.mahout.cf.taste.model.DataModel;
 import org.apache.mahout.cf.taste.neighborhood.UserNeighborhood;
@@ -59,9 +61,7 @@ public class ProfileManager {
            //récupère tous les id des programmes vu pour un utilisateur
            ResultSet rs2 = stmt.executeQuery(
            "SELECT PROGID"
-           + "WHERE USERID LIKE 'rs.getLong(0)' FROM USERSHISTORIC"); 
-         
-           
+           + "WHERE USERID LIKE 'rs.getLong(0)' FROM USERSHISTORIC");
         }
         
         //ex de data à rentrer après calcul
@@ -71,6 +71,7 @@ public class ProfileManager {
     
     public List<RecommendedItem> findActorPreferences() throws SQLException {
         List<RecommendedItem> recommendations = null;
+        boolean nextResult = false;
         String query = "SELECT userId, artistId, artistWeight FROM ArtistPreferences";
 
         //On créé la statement
@@ -79,28 +80,33 @@ public class ProfileManager {
         result = stateListArtistPreferences.executeQuery(query);
         //On commit pour mettre à jour la BDD
         myCon.commit();
-        try {
-            String filePath = System.getProperty("user.dir") + "/actorPreferences.csv";
-            System.out.println(filePath);
-            FileWriter fileWriter = new FileWriter(filePath, false);
-            BufferedWriter output = new BufferedWriter(fileWriter);
+        
+        nextResult = result.next();
+        if(nextResult) {
+            try {
+                String filePath = System.getProperty("user.dir") + "/ArtistPreferences.csv";
+                FileWriter fileWriter = new FileWriter(filePath, false);
+                BufferedWriter output = new BufferedWriter(fileWriter);
 
-            while(result.next()) {
-                output.write(result.getInt(1) + "," + result.getInt(2) + "," + result.getFloat(3));
-                output.flush();
+                while(nextResult) {
+                    output.write(result.getInt(1) + "," + result.getInt(2) + "," + result.getFloat(3)+"\n");
+                    output.flush();
+                    nextResult = result.next();
+                }
+
+                output.close();
+            } catch (IOException ex) {
+                Logger.getLogger(ProfileManager.class.getName()).log(Level.SEVERE, null, ex);
             }
-            
-            output.close();
-        } catch (IOException ex) {
-            Logger.getLogger(ProfileManager.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         try {
-            DataModel model = new FileDataModel(new File("actorPreferences.csv"));
+            //faire test si fichier vide
+            DataModel model = new FileDataModel(new File("ArtistPreferences.csv"));
             UserSimilarity similarity = new PearsonCorrelationSimilarity(model);
             UserNeighborhood neighborhood = new NearestNUserNeighborhood(2, similarity, model);
             Recommender recommender = new GenericUserBasedRecommender(model, neighborhood, similarity);
-            recommendations = recommender.recommend(1, 1);
+            recommendations = recommender.recommend(2, 1);
         } catch (IOException ex) {
             Logger.getLogger(ProfileManager.class.getName()).log(Level.SEVERE, null, ex);
         } catch (TasteException ex) {
