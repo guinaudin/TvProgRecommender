@@ -11,18 +11,21 @@ public class TvProgRecommender {
 
     public static void main(String[] args) {
         try {
-            ProfileManager profileManager = new ProfileManager("jdbc:mysql://localhost:3306/Profile", "root", "");
-            Map<Integer, List<RecommendedItem>> usersArtistRecommendations = profileManager.findArtistPreferences(2);
-            for(Map.Entry<Integer, List<RecommendedItem>> entry : usersArtistRecommendations.entrySet()) {
-                for(RecommendedItem recommendation : entry.getValue()) {
-                    System.out.println("recommendation " + entry.getKey() + " = " + recommendation);
+            ProfileManager profileManager = new ProfileManager("jdbc:mysql://localhost:3306/Profile", "root", "chameau89");
+            profileManager.usersArtistRecommendations = profileManager.findArtistPreferences(2);
+
+            for (Map.Entry<Integer, List<RecommendedItem>> entry : profileManager.usersArtistRecommendations.entrySet()) {
+                if (!entry.getValue().isEmpty()) {
+                    for (RecommendedItem recommendation : entry.getValue()) {
+                        System.out.println("recommendation " + entry.getKey() + " = " + recommendation);
+                    }
+                    System.out.println("");
                 }
-                System.out.println("");
             }
-            
+
             profileManager.actorWeightCalculation();
-        }
-        catch (SQLException ex) {
+            profileManager.saveArtistsRecommendations();
+        } catch (SQLException ex) {
             Logger.getLogger(TvProgRecommender.class.getName()).log(Level.SEVERE, null, ex);
         }
 
