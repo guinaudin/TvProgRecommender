@@ -1,4 +1,4 @@
-package ece.zapp.tvprogrecommender;
+package fr.ece.zappwebapp;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -28,20 +28,21 @@ import org.apache.mahout.cf.taste.similarity.UserSimilarity;
 
 public class ProfileManager {
 
-    private Connection myCon;
+    private final Connection myCon;
     private Statement stateListArtistPreferences;
     private Statement stateListNumberUsers;
     private ResultSet result;
     private int numberUsers;
-    Map<Integer, List<RecommendedItem>> usersArtistRecommendations;
-
-    public ProfileManager(String url, String user, String password) throws SQLException {
+    private Map<Integer, List<RecommendedItem>> usersArtistRecommendations;
+    
+    public ProfileManager() throws SQLException {
         //Etablissement de la connection à la BDD
         System.setProperty("jdbc.drivers", "com.mysql.jdbc.Driver");
-        myCon = DriverManager.getConnection(url, user, password);
+        myCon = DriverManager.getConnection("jdbc:mysql://localhost:3306/Profile", "root", "");
         //Pas d'auto commit
         myCon.setAutoCommit(false);
-
+        
+        usersArtistRecommendations = new HashMap<Integer, List<RecommendedItem>>();
         numberUsers = this.getNumberUsers();
     }
 
@@ -59,7 +60,7 @@ public class ProfileManager {
             Map<Long, Float> actorWeight = new HashMap<Long, Float>();
             int row;
             Long userId = rs.getLong("userId");
-            String query = "SELECT progId FROM UsersHistoric WHERE userId = " + userId;
+            String query = "SELECT progId FROM UserHistoric WHERE userId = " + userId;
             ResultSet rs2 = stmt2.executeQuery(query);
             myCon.commit();
 
@@ -67,12 +68,12 @@ public class ProfileManager {
             rs2.last();
             row = rs2.getRow();
             rs2.beforeFirst();
-
+            
             while (rs2.next()) {
                 Long prodId = rs2.getLong("progId");
                 //récupère les acteurs qui ont joués dans les progTV vus
                 ResultSet rs3 = stmt3.executeQuery(
-                        "SELECT artistId FROM ArtistsPlayIn WHERE progId = " + prodId + " "); //TODO PBM ICI car pas de distinction des rôles (je prends tlm, pas seulement les acteurs)
+                        "SELECT artistId FROM ArtistPlayIn WHERE progId = " + prodId + " "); //TODO PBM ICI car pas de distinction des rôles (je prends tlm, pas seulement les acteurs)
 
                 myCon.commit();
 
@@ -139,9 +140,7 @@ public class ProfileManager {
         return result.getRow();
     }
 
-    public Map<Integer, List<RecommendedItem>> findArtistPreferences(int recommendationNumber) throws SQLException {
-        Map<Integer, List<RecommendedItem>> usersArtistRecommendations;
-        usersArtistRecommendations = new HashMap<Integer, List<RecommendedItem>>();
+    public void findArtistPreferences(int recommendationNumber) throws SQLException {
         List<RecommendedItem> artistRecommendations = null;
         boolean nextResult = false;
         String query = "SELECT userId, artistId, artistWeight FROM ArtistPreferences";
@@ -186,43 +185,6 @@ public class ProfileManager {
                 Logger.getLogger(ProfileManager.class.getName()).log(Level.SEVERE, null, ex);
             } catch (TasteException ex) {
                 Logger.getLogger(ProfileManager.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-
-        return usersArtistRecommendations;
-    }
-
-    public void saveArtistsRecommendations() throws SQLException {
-
-        for (Map.Entry<Integer, List<RecommendedItem>> entry : usersArtistRecommendations.entrySet()) {
-            if (!entry.getValue().isEmpty()) {
-                //System.out.println("entry.getValue.getItemId : " +entry.getValue().get(0));
-                PreparedStatement ps = myCon.prepareStatement("SELECT count(*) FROM ArtistsRecommendations WHERE userId = ?");
-                ps.setLong(1, entry.getKey());
-                ResultSet resultSet = ps.executeQuery();
-                myCon.commit();
-
-                resultSet.next();
-
-                //si la ligne existe déjà on l'actualise
-                if (resultSet.getInt(1) == 1) {
-                    PreparedStatement update = myCon.prepareStatement("UPDATE ArtistsRecommendations SET artistId1 = ? AND artistId2 = ? WHERE userId = ?");
-                    for (int i = 0; i < entry.getValue().size(); i++) {
-                        update.setLong(i + 1, entry.getValue().get(i).getItemID());
-                    }
-                    update.setLong(3, entry.getKey());
-                    update.executeUpdate();
-                    myCon.commit();
-                } //sinon on la créé
-                else {
-                    PreparedStatement insert = myCon.prepareStatement("INSERT INTO ArtistsRecommendations (userId, artistId1, artistId2) VALUES (?,?,?)");
-                    insert.setLong(1, entry.getKey());
-                    for (int i = 0; i < entry.getValue().size(); i++) {
-                        insert.setLong(i + 2, entry.getValue().get(i).getItemID());
-                    }
-                    insert.executeUpdate();
-                    myCon.commit();
-                }
             }
         }
     }
