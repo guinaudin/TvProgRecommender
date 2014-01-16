@@ -1,4 +1,4 @@
-package fr.ece.zappwebapp;
+package ece.zapp.tvprogrecommender;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -38,7 +38,7 @@ public class ProfileManager {
     public ProfileManager() throws SQLException {
         //Etablissement de la connection à la BDD
         System.setProperty("jdbc.drivers", "com.mysql.jdbc.Driver");
-        myCon = DriverManager.getConnection("jdbc:mysql://localhost:3306/Profile", "root", "");
+        myCon = DriverManager.getConnection("jdbc:mysql://localhost:3306/Profile", "root", "adminadmin");
         //Pas d'auto commit
         myCon.setAutoCommit(false);
         
@@ -60,7 +60,7 @@ public class ProfileManager {
             Map<Long, Float> actorWeight = new HashMap<Long, Float>();
             int row;
             Long userId = rs.getLong("userId");
-            String query = "SELECT progId FROM UserHistoric WHERE userId = " + userId;
+            String query = "SELECT progId FROM UsersHistoric WHERE userId = " + userId;
             ResultSet rs2 = stmt2.executeQuery(query);
             myCon.commit();
 
@@ -73,7 +73,7 @@ public class ProfileManager {
                 Long prodId = rs2.getLong("progId");
                 //récupère les acteurs qui ont joués dans les progTV vus
                 ResultSet rs3 = stmt3.executeQuery(
-                        "SELECT artistId FROM ArtistPlayIn WHERE progId = " + prodId + " "); //TODO PBM ICI car pas de distinction des rôles (je prends tlm, pas seulement les acteurs)
+                        "SELECT artistId FROM ArtistsPlayIn WHERE progId = " + prodId + " "); //TODO PBM ICI car pas de distinction des rôles (je prends tlm, pas seulement les acteurs)
 
                 myCon.commit();
 
@@ -126,6 +126,49 @@ public class ProfileManager {
             //vide les hashmasp pour le prochain user
             actorRecurrence.clear();
             actorWeight.clear();
+        }
+    }
+
+    public void saveArtistsRecommendations() throws SQLException {
+        String artistsList = "";
+        for (Map.Entry<Integer, List<RecommendedItem>> entry : usersArtistRecommendations.entrySet()) {
+            if (!entry.getValue().isEmpty()) {
+                //System.out.println("entry.getValue.getItemId : " +entry.getValue().get(0));
+                PreparedStatement ps = myCon.prepareStatement("SELECT count(*) FROM ArtistsRecommendations WHERE userId = ?");
+                ps.setLong(1, entry.getKey());
+                ResultSet resultSet = ps.executeQuery();
+                myCon.commit();
+
+                resultSet.next();
+
+                //si la ligne existe déjà on l'actualise
+                if (resultSet.getInt(1) == 1) {
+                    PreparedStatement update = myCon.prepareStatement("UPDATE ArtistsRecommendations SET artistIdList = ? WHERE userId = ?");
+                    for (int i = 0; i < entry.getValue().size(); i++) {
+                        if(i == entry.getValue().size())
+                            artistsList = artistsList + entry.getValue().get(i).getItemID();
+                        else
+                            artistsList = artistsList + entry.getValue().get(i).getItemID() + ",";
+                    }
+                    update.setString(1, artistsList);
+                    update.setLong(2, entry.getKey());
+                    update.executeUpdate();
+                    myCon.commit();
+                } //sinon on la créé
+                else {
+                    PreparedStatement insert = myCon.prepareStatement("INSERT INTO ArtistsRecommendations (userId, artistIdList) VALUES (?,?)");
+                    insert.setLong(1, entry.getKey());
+                    for (int i = 0; i < entry.getValue().size(); i++) {
+                        if(i == entry.getValue().size())
+                            artistsList = artistsList + entry.getValue().get(i).getItemID();
+                        else
+                            artistsList = artistsList + entry.getValue().get(i).getItemID() + ",";
+                    }
+                    insert.setString(2, artistsList);
+                    insert.executeUpdate();
+                    myCon.commit();
+                }
+            }
         }
     }
 
@@ -186,6 +229,13 @@ public class ProfileManager {
             } catch (TasteException ex) {
                 Logger.getLogger(ProfileManager.class.getName()).log(Level.SEVERE, null, ex);
             }
+        }
+        
+        for(Map.Entry<Integer, List<RecommendedItem>> entry : usersArtistRecommendations.entrySet()) {
+            for(RecommendedItem recommendation : entry.getValue()) {
+                System.out.println("recommendation " + entry.getKey() + " = " + recommendation);
+            }
+            System.out.println("");
         }
     }
 }
