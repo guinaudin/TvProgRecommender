@@ -34,14 +34,14 @@ public class ProfileManager {
     private ResultSet result;
     private int numberUsers;
     private Map<Integer, List<RecommendedItem>> usersArtistRecommendations;
-    
+
     public ProfileManager() throws SQLException {
         //Etablissement de la connection à la BDD
         System.setProperty("jdbc.drivers", "com.mysql.jdbc.Driver");
-        myCon = DriverManager.getConnection("jdbc:mysql://localhost:3306/Profile", "root", "adminadmin");
+        myCon = DriverManager.getConnection("jdbc:mysql://localhost:3306/Profile", "root", "chameau89");
         //Pas d'auto commit
         myCon.setAutoCommit(false);
-        
+
         usersArtistRecommendations = new HashMap<Integer, List<RecommendedItem>>();
         numberUsers = this.getNumberUsers();
     }
@@ -68,7 +68,7 @@ public class ProfileManager {
             rs2.last();
             row = rs2.getRow();
             rs2.beforeFirst();
-            
+
             while (rs2.next()) {
                 Long prodId = rs2.getLong("progId");
                 //récupère les acteurs qui ont joués dans les progTV vus
@@ -145,10 +145,11 @@ public class ProfileManager {
                 if (resultSet.getInt(1) == 1) {
                     PreparedStatement update = myCon.prepareStatement("UPDATE ArtistsRecommendations SET artistIdList = ? WHERE userId = ?");
                     for (int i = 0; i < entry.getValue().size(); i++) {
-                        if(i == entry.getValue().size() - 1)
+                        if (i == entry.getValue().size() - 1) {
                             artistsList = artistsList + entry.getValue().get(i).getItemID();
-                        else
+                        } else {
                             artistsList = artistsList + entry.getValue().get(i).getItemID() + ",";
+                        }
                     }
                     update.setString(1, artistsList);
                     update.setLong(2, entry.getKey());
@@ -159,16 +160,19 @@ public class ProfileManager {
                     PreparedStatement insert = myCon.prepareStatement("INSERT INTO ArtistsRecommendations (userId, artistIdList) VALUES (?,?)");
                     insert.setLong(1, entry.getKey());
                     for (int i = 0; i < entry.getValue().size(); i++) {
-                        if(i == entry.getValue().size() - 1)
+                        if (i == entry.getValue().size() - 1) {
                             artistsList = artistsList + entry.getValue().get(i).getItemID();
-                        else
+                        } else {
                             artistsList = artistsList + entry.getValue().get(i).getItemID() + ",";
+                        }
                     }
                     insert.setString(2, artistsList);
                     insert.executeUpdate();
                     myCon.commit();
                 }
             }
+            artistsList = "";
+            
         }
     }
 
@@ -230,12 +234,15 @@ public class ProfileManager {
                 Logger.getLogger(ProfileManager.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        
-        for(Map.Entry<Integer, List<RecommendedItem>> entry : usersArtistRecommendations.entrySet()) {
-            for(RecommendedItem recommendation : entry.getValue()) {
-                System.out.println("recommendation " + entry.getKey() + " = " + recommendation);
+
+        for (Map.Entry<Integer, List<RecommendedItem>> entry : usersArtistRecommendations.entrySet()) {
+
+            if (!entry.getValue().isEmpty()) {
+                for (RecommendedItem recommendation : entry.getValue()) {
+                    System.out.println("recommendation " + entry.getKey() + " = " + recommendation);
+                }
+                System.out.println("");
             }
-            System.out.println("");
         }
     }
 }
