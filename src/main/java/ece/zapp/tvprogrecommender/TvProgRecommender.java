@@ -9,10 +9,6 @@ public class TvProgRecommender {
         ProfileManager profileManager;
         try {
             profileManager = new ProfileManager();
-            
-            profileManager.actorWeightCalculation();
-            profileManager.findArtistPreferences(10);
-            profileManager.saveArtistsRecommendations();
         } 
         catch (SQLException ex) {
             Logger.getLogger(TvProgRecommender.class.getName()).log(Level.SEVERE, null, ex);
